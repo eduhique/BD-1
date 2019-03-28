@@ -45,15 +45,15 @@ INSERT INTO tarefas VALUES (2147483652, 'limpar portas do 2o  andar', '323232329
 -- Questão 4
 
 ALTER TABLE tarefas ALTER COLUMN id SET NOT NULL;
---ERROR:  column "id" contains null values
+--retorno de tela: ERROR:  column "id" contains null values
 ALTER TABLE tarefas ALTER COLUMN descricao SET NOT NULL;
---ERROR:  column "descricao" contains null values
+--retorno de tela: ERROR:  column "descricao" contains null values
 ALTER TABLE tarefas ALTER COLUMN func_resp_cpf SET NOT NULL;
---ERROR:  column "func_resp_cpf" contains null values
+--retorno de tela: ERROR:  column "func_resp_cpf" contains null values
 ALTER TABLE tarefas ALTER COLUMN prioridade SET NOT NULL;
---ERROR:  column "prioridade" contains null values
+--retorno de tela: ERROR:  column "prioridade" contains null values
 ALTER TABLE tarefas ALTER COLUMN status SET NOT NULL;
---ERROR:  column "status" contains null values
+--retorno de tela: ERROR:  column "status" contains null values
 
 DELETE FROM tarefas WHERE id IS NULL;
 
@@ -65,4 +65,68 @@ ALTER TABLE tarefas ALTER COLUMN status SET NOT NULL;
 
 -- Questão 5
 
+ALTER TABLE tarefas ADD CONSTRAINT tarefas_pkey PRIMARY KEY(id);
 
+-- Comandos 5
+
+INSERT INTO tarefas VALUES (2147483653, 'limpar portas do 1o andar', '32323232911', 2, 'A');
+
+INSERT INTO tarefas VALUES (2147483653, 'aparar a grama da área frontal', '32323232911', 3, 'A');
+--retorno de tela: ERROR:  duplicate key value violates unique constraint "tarefas_pkey"
+--                 DETAIL:  Key (id)=(2147483653) already exists.
+
+-- Questão 6
+
+--A)
+
+ALTER TABLE tarefas ADD CONSTRAINT tarefas_chk_func_cpf_valido CHECK(LENGTH(func_resp_cpf) = 11);
+
+INSERT INTO tarefas VALUES (2147483658, 'limpar portas do 1o andar', '32323232', 2, 'A');
+-- retorno de tela: ERROR:  new row for relation "tarefas" violates check constraint "tarefas_chk_func_cpf_valido"
+--                  DETAIL:  Failing row contains (2147483654, limpar portas do 1o andar, 32323232   , 2, A).
+
+INSERT INTO tarefas VALUES (2147483653, 'limpar portas do 1o andar', '323232329119', 2, 'A');
+-- Retorno de tela: 'ERROR:  value too long for type character(11)'
+
+--B)
+
+ALTER TABLE tarefas ADD CONSTRAINT tarefas_chk_Status_possiveis CHECK (status = 'P' OR status = 'E' OR status = 'C');
+--retorno de tela: ERROR:  check constraint "tarefas_chk_status_possiveis" is violated by some row
+
+UPDATE tarefas SET status = 'P' WHERE status = 'A';
+UPDATE tarefas SET status = 'C' WHERE status = 'F';
+
+ALTER TABLE tarefas ADD CONSTRAINT tarefas_chk_Status_possiveis CHECK (status = 'P' OR status = 'E' OR status = 'C');
+
+INSERT INTO tarefas VALUES (2147483653, 'limpar portas do 1o andar', '32323232911', 2, 'A');
+-- ERROR:  new row for relation "tarefas" violates check constraint "tarefas_chk_status_possiveis"
+-- DETAIL:  Failing row contains (2147483653, limpar portas do 1o andar, 32323232911, 2, A).
+
+-- Questão 7
+
+ALTER TABLE tarefas ADD CONSTRAINT tarefas_chk_prioridade_possiveis CHECK (prioridade >= 0 AND prioridade <=5);
+-- ERROR:  check constraint "tarefas_chk_prioridade_possiveis" is violated by some row
+
+DELETE FROM tarefas WHERE prioridade > 5;
+
+ALTER TABLE tarefas ADD CONSTRAINT tarefas_chk_prioridade_possiveis CHECK (prioridade >= 0 AND prioridade <=5);
+
+INSERT INTO tarefas VALUES (2147483649, 'limpar portas da entrada principal', '32322525199', 6, 'A');
+-- ERROR:  new row for relation "tarefas" violates check constraint "tarefas_chk_prioridade_possiveis"
+-- DETAIL:  Failing row contains (2147483649, limpar portas da entrada principal, 32322525199, 32767, A).
+
+INSERT INTO tarefas VALUES (2147483649, 'limpar portas da entrada principal', '32322525199', -1, 'A');
+-- ERROR:  new row for relation "tarefas" violates check constraint "tarefas_chk_prioridade_possiveis"
+-- DETAIL:  Failing row contains (2147483649, limpar portas da entrada principal, 32322525199, -1, A).
+
+-- Questão 8
+
+CREATE TABLE funcionario(
+    cpf CHAR(11),
+    data_nasc DATE,
+    nome TEXT,
+    funcao TEXT,
+    nivel CHAR(1),
+    superior_cpf CHAR(11)
+    
+);
