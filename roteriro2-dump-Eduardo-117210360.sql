@@ -15,7 +15,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 ALTER TABLE ONLY public.tarefas DROP CONSTRAINT tarefas_func_resp_cpf_fkey;
-ALTER TABLE ONLY public.funcionario DROP CONSTRAINT funcionario_superior_cpf;
+ALTER TABLE ONLY public.funcionario DROP CONSTRAINT funcionario_superior_cpf_fkey;
 ALTER TABLE ONLY public.tarefas DROP CONSTRAINT tarefas_pkey;
 ALTER TABLE ONLY public.funcionario DROP CONSTRAINT funcionario_pkey;
 DROP TABLE public.tarefas;
@@ -54,7 +54,7 @@ CREATE TABLE public.tarefas (
     func_resp_cpf character(11),
     prioridade smallint NOT NULL,
     status character(1) NOT NULL,
-    CONSTRAINT func_resp_cpf_chk CHECK ((((status = 'E'::bpchar) AND (func_resp_cpf IS NOT NULL)) OR ((status = 'P'::bpchar) AND (func_resp_cpf IS NULL)) OR ((status = 'P'::bpchar) AND (func_resp_cpf IS NOT NULL)) OR ((status = 'C'::bpchar) AND (func_resp_cpf IS NOT NULL)) OR ((status = 'C'::bpchar) AND (func_resp_cpf IS NULL)))),
+    CONSTRAINT func_resp_cpf_chk CHECK ((((status = 'E'::bpchar) AND (func_resp_cpf IS NOT NULL)) OR ((status = 'P'::bpchar) OR (status = 'C'::bpchar)))),
     CONSTRAINT tarefas_chk_func_cpf_valido CHECK ((length(func_resp_cpf) = 11)),
     CONSTRAINT tarefas_chk_prioridade_possiveis CHECK (((prioridade >= 0) AND (prioridade <= 5))),
     CONSTRAINT tarefas_chk_status_possiveis CHECK (((status = 'P'::bpchar) OR (status = 'E'::bpchar) OR (status = 'C'::bpchar)))
@@ -91,7 +91,6 @@ INSERT INTO public.funcionario (cpf, data_nasc, nome, funcao, nivel, superior_cp
 INSERT INTO public.tarefas (id, descricao, func_resp_cpf, prioridade, status) VALUES (2147483648, 'limpar portas do térreo', '32323232955', 4, 'P');
 INSERT INTO public.tarefas (id, descricao, func_resp_cpf, prioridade, status) VALUES (2147483646, 'limpar chão do corredor central', '98765432111', 0, 'C');
 INSERT INTO public.tarefas (id, descricao, func_resp_cpf, prioridade, status) VALUES (2147483647, 'limpar janelas da sala 203', '98765432122', 1, 'C');
-INSERT INTO public.tarefas (id, descricao, func_resp_cpf, prioridade, status) VALUES (214744, 'limpar chão do corredor central', '12345678911', 0, 'C');
 
 
 --
@@ -111,11 +110,11 @@ ALTER TABLE ONLY public.tarefas
 
 
 --
--- Name: funcionario_superior_cpf; Type: FK CONSTRAINT; Schema: public; Owner: eduardo
+-- Name: funcionario_superior_cpf_fkey; Type: FK CONSTRAINT; Schema: public; Owner: eduardo
 --
 
 ALTER TABLE ONLY public.funcionario
-    ADD CONSTRAINT funcionario_superior_cpf FOREIGN KEY (superior_cpf) REFERENCES public.funcionario(cpf);
+    ADD CONSTRAINT funcionario_superior_cpf_fkey FOREIGN KEY (superior_cpf) REFERENCES public.funcionario(cpf);
 
 
 --

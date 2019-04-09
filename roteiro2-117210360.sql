@@ -87,7 +87,7 @@ INSERT INTO tarefas VALUES (2147483658, 'limpar portas do 1o andar', '32323232',
 INSERT INTO tarefas VALUES (2147483653, 'limpar portas do 1o andar', '323232329119', 2, 'A');
 -- Retorno de tela: 'ERROR:  value too long for type character(11)'
 
---B)
+-- B)
 
 ALTER TABLE tarefas ADD CONSTRAINT tarefas_chk_Status_possiveis CHECK (status = 'P' OR status = 'E' OR status = 'C');
 --retorno de tela: ERROR:  check constraint "tarefas_chk_status_possiveis" is violated by some row
@@ -206,46 +206,41 @@ INSERT INTO funcionario(cpf, data_nasc, nome, funcao, nivel, superior_cpf) VALUE
 
 -- Questao 10
 
-ALTER TABLE tarefas ADD CONSTRAINT tarefas_func_resp_cpf_fkey FOREIGN KEY (func_resp_cpf) REFERENCES funcionario(cpf);
--- ERROR:  insert or update on table "tarefas" violates foreign key constraint "tarefas_func_resp_cpf_fkey"
--- DETAIL:  Key (func_resp_cpf)=(32323232955) is not present in table "funcionario".
-
 INSERT INTO funcionario(cpf, data_nasc, nome, funcao, nivel, superior_cpf) VALUES
 ('32323232955', '1980-11-30', 'Gabriela', 'LIMPEZA', 'S', '41579614809'),
 ('32323232911', '1985-03-03', 'Maria dos Prazeres', 'LIMPEZA', 'P', '48842264881'),
 ('98765432111', '1992-10-17', 'Enzo', 'LIMPEZA', 'J', '41579614809'),
 ('98765432122', '1997-08-21', 'Valentina Roberta', 'LIMPEZA', 'J', '48842264881');
 
+-- Opcao 1
 ALTER TABLE tarefas ADD CONSTRAINT tarefas_func_resp_cpf_fkey FOREIGN KEY (func_resp_cpf) REFERENCES funcionario(cpf) ON DELETE CASCADE;
 -- deletou o menor cpf em cascata
 
+DELETE FROM funcionario WHERE cpf = '32323232911';
+
+-- Opcao 2
 
 ALTER TABLE tarefas DROP constraint tarefas_func_resp_cpf_fkey;
 
 ALTER TABLE tarefas ADD CONSTRAINT tarefas_func_resp_cpf_fkey FOREIGN KEY (func_resp_cpf) REFERENCES funcionario(cpf) ON DELETE RESTRICT;
 
-ALTER TABLE tarefas ADD CONSTRAINT tarefas_func_resp_cpf_fkey FOREIGN KEY (func_resp_cpf) REFERENCES funcionario(cpf) ON DELETE RESTRICT;
---ERROR:  update or delete on table "funcionario" violates foreign key constraint "tarefas_func_resp_cpf_fkey" on table "tarefas"
---DETAIL:  Key (cpf)=(32323232955) is still referenced from table "tarefas".
+DELETE FROM funcionario WHERE cpf = '98765432111';
+-- ERROR:  update or delete on table "funcionario" violates foreign key constraint "tarefas_func_resp_cpf_fkey" on table "tarefas"
+-- DETAIL:  Key (cpf)=(98765432111) is still referenced from table "tarefas".
 
 -- Questao 11
 
 ALTER TABLE tarefas ALTER COLUMN func_resp_cpf DROP NOT NULL;
-
+ALTER TABLE tarefas ADD CONSTRAINT func_resp_cpf_chk CHECK((status = 'E' AND func_resp_cpf IS NOT NULL) OR (status = 'P' OR status = 'C'));
 ALTER TABLE tarefas DROP constraint tarefas_func_resp_cpf_fkey;
 
-ALTER TABLE tarefas ADD CONSTRAINT func_resp_cpf_chk CHECK ((status = 'E' AND func_resp_cpf IS NOT NULL) OR (status = 'P' AND func_resp_cpf IS NULL) OR (status = 'P' AND func_resp_cpf IS NOT NULL) OR (status = 'C' AND func_resp_cpf IS NOT NULL) OR (status = 'C' AND func_resp_cpf IS NULL));
-
-
 ALTER TABLE tarefas ADD CONSTRAINT tarefas_func_resp_cpf_fkey FOREIGN KEY (func_resp_cpf) REFERENCES funcionario(cpf) ON DELETE SET NULL;
-
 
 INSERT INTO tarefas VALUES (214743, 'limpar chão do corredor central', null, 0, 'E');
 -- ERROR:  new row for relation "tarefas" violates check constraint "func_resp_cpf_chk"
 -- DETAIL:  Failing row contains (214743, limpar chão do corredor central, null, 0, E).
 
-delete from funcionario where cpf='12345678911';
+DELETE FROM funcionario WHERE cpf='12345678911';
 -- ERROR:  update or delete on table "funcionario" violates foreign key constraint "funcionario_superior_cpf" on table "funcionario"
 -- DETAIL:  Key (cpf)=(12345678911) is still referenced from table "funcionario".
-
 
