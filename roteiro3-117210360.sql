@@ -16,7 +16,7 @@ CREATE TABLE funcionarios(
     CONSTRAINT funcionarios_chk_cpf_valido CHECK(LENGTH(cpf) = 11),
     CONSTRAINT funcionarios_chk_farmciaID_valido CHECK(farmaciaID >0),
     CONSTRAINT funcionarios_gerente_ex EXCLUDE USING gist(farmaciaID with=) WHERE (gerente = true),
-    CONSTRAINT funcionarios_gerente_chk CHECK(farmaciaID IS NULL AND gerente = false)
+    CONSTRAINT funcionarios_gerente_chk CHECK((farmaciaID IS NOT NULL AND gerente = true AND (funcao = 'FARMACEUTICO' OR funcao = 'ADMINISTRADOR')) OR (gerente = false))
 );
 
 CREATE TABLE farmacias(
@@ -110,4 +110,4 @@ CREATE TABLE entregas(
 INSERT INTO funcionarios VALUES ('12734805000', 'Carlos Wilson', 'FARMACEUTICO', null, false);
 INSERT INTO funcionarios VALUES ('12734805001', 'Pedro Santos', 'FARMACEUTICO', null, false);
 INSERT INTO funcionarios VALUES ('12734805013', 'Ana Paula', 'ADMINSTRADOR', null, false);
-INSERT INTO funcionarios VALUES ('12734805001', 'Carla Silva', 'FARMACEUTICO', null, false);
+INSERT INTO funcionarios VALUES ('12734805001', 'Carla Silva', 'VENDEDOR', null, false);
