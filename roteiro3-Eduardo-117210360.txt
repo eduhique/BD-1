@@ -1,0 +1,383 @@
+--
+-- Criacao das Tabelas
+--
+
+CREATE TYPE ESTADO_NE AS ENUM ('PB', 'PE', 'RN', 'BA', 'CE', 'PI','SE', 'AL','MA');
+CREATE TYPE FUNCAO_FUN AS ENUM ('FARMACEUTICO', 'VENDEDOR', 'ENTREGADOR', 'CAIXA', 'ADMINISTRADOR');
+CREATE TYPE ADDRESS_TIPO AS  ENUM ('RESIDENCIA', 'TRABALHO', 'OUTRO');
+
+CREATE TABLE funcionarios(
+    cpf CHAR(11) NOT NULL,
+    nome TEXT NOT NULL,
+    funcao FUNCAO_FUN NOT NULL,
+    farmaciaID INTEGER,
+    CONSTRAINT funcionarios_cpf_pkey PRIMARY KEY(cpf),
+    CONSTRAINT funcionarios_chk_cpf_valido CHECK(LENGTH(cpf) = 11),
+    CONSTRAINT funcionarios_chk_farmciaID_valido CHECK(farmaciaID >0),
+    CONSTRAINT funcionarios_funcao_uni UNIQUE(cpf, funcao)
+);
+
+CREATE TABLE farmacias(
+    fa_id SERIAL,
+    nome VARCHAR(50) NOT NULL,
+    bairro VARCHAR(20) NOT NULL,
+    cidade VARCHAR(20) NOT NULL,
+    estado ESTADO_NE NOT NULL,
+    gerente CHAR(11) NOT NULL,
+    gerente_fun FUNCAO_FUN NOT NULL,
+    tipo_loja CHAR(1) NOT NULL,
+    CONSTRAINT farmacias_id_pkey PRIMARY KEY(fa_id),
+    CONSTRAINT farmacias_chk_fa_ID_valido CHECK(fa_id >0),
+    CONSTRAINT farmacias_bairro_un UNIQUE(bairro),
+    CONSTRAINT farmacias_tipo_ex EXCLUDE USING gist(tipo_loja with=) WHERE (tipo_loja = 'S'),
+    CONSTRAINT farmacias_tipo_chk CHECK(tipo_loja = 'S' OR tipo_loja = 'F'),
+    CONSTRAINT farmacias_gerente_fkey FOREIGN KEY (gerente, gerente_fun) REFERENCES funcionarios(cpf,funcao) ON DELETE RESTRICT,
+    CONSTRAINT farmacias_gerente_fun_chk CHECK(gerente_fun = 'FARMACEUTICO' OR gerente_fun = 'ADMINISTRADOR'),
+    CONSTRAINT farmacias_gerente_un UNIQUE(gerente, fa_id)
+);
+
+ALTER TABLE funcionarios ADD CONSTRAINT funcionarios_farmaciaID_fkey FOREIGN KEY(cpf, farmaciaID) REFERENCES farmacias(gerente, fa_id);
+
+CREATE TABLE medicamentos(
+    medID SERIAL,
+    nome VARCHAR(50) NOT NULL,
+    prin_ativo VARCHAR(50) NOT NULL,
+    venda_exclusiva BOOLEAN NOT NULL,
+    valor NUMERIC NOT NULL,
+    CONSTRAINT medicamentos_venda_uni UNIQUE(medID, venda_exclusiva),
+    CONSTRAINT medicamentos_medID_pkey PRIMARY KEY(medID),
+    CONSTRAINT medicamentos_chk_fa_ID_valido CHECK(medID >0),
+    CONSTRAINT medicamentos_valor_chk CHECK(valor >= 0)
+);
+
+CREATE TABLE clientes(
+    clienteID SERIAL,
+    nome VARCHAR(50) NOT NULL,
+    data_nasc date NOT NULL,
+    CONSTRAINT clientes_clienteID_pkey PRIMARY KEY(clienteID),
+    CONSTRAINT clientes_chk_clienteID_valido CHECK(clienteID >0),
+    CONSTRAINT clientes_idade_min_chk CHECK((extract(year from age(data_nasc))) >= 18)
+);
+
+CREATE TABLE enderecos(
+    endeID SERIAL,
+    clienteID INTEGER NOT NULL,
+    tipo_endereco ADDRESS_TIPO NOT NULL,
+    estado ESTADO_NE NOT NULL,
+    cidade VARCHAR(20) NOT NULL,
+    bairro VARCHAR(20) NOT NULL,
+    rua VARCHAR(70) NOT NULL,
+    CONSTRAINT enderecos_endeID_pkey PRIMARY KEY(endeID),
+    CONSTRAINT enderecos_chk_endeID_valido CHECK(endeID >0),
+    CONSTRAINT enderecos_clienteID_fkey FOREIGN KEY (clienteID) REFERENCES clientes(clienteID),
+    CONSTRAINT enderecos_clienteID_un UNIQUE(endeID, clienteID)
+);
+
+CREATE TABLE vendas(
+    venID SERIAL,
+    produto INTEGER NOT NULL,
+    produto_receita BOOLEAN NOT NULL,
+    clienteID INTEGER,
+    valor NUMERIC NOT NULL,
+    vendedor CHAR(11) NOT NULL,
+    vendedor_fun FUNCAO_FUN NOT NULL,
+    CONSTRAINT vendas_venID_pkey PRIMARY KEY(venID),
+    CONSTRAINT vendas_chk_venID_valido CHECK(venID >0),
+    CONSTRAINT vendas_produto_receita_fkey FOREIGN KEY(produto, produto_receita) REFERENCES medicamentos(medID, venda_exclusiva) ON DELETE RESTRICT,
+    CONSTRAINT vendas_clienteID_fkey FOREIGN KEY(clienteID) REFERENCES clientes(clienteID),
+    CONSTRAINT vendas_vendedor_fkey FOREIGN KEY(vendedor, vendedor_fun) REFERENCES funcionarios(cpf, funcao) ON DELETE RESTRICT,
+    CONSTRAINT vendas_receita_chk CHECK (NOT(clienteID IS NULL AND produto_receita = true)),
+    CONSTRAINT vendas_valor_chk CHECK(valor >= 0),
+    CONSTRAINT vendas_vendedor_chk CHECK(vendedor_fun = 'VENDEDOR'),
+    CONSTRAINT vendas_clienteID_un UNIQUE(venID, clienteID)
+);
+
+CREATE TABLE entregas(
+    entregaID SERIAL,
+    vendaID INTEGER NOT NULL,
+    clienteID INTEGER NOT NULL,
+    enderecoID INTEGER NOT NULL,
+    CONSTRAINT entregas_entregaID_pkey PRIMARY KEY(entregaID),
+    CONSTRAINT vendas_chk_entregaID_valido CHECK(entregaID >0),
+    CONSTRAINT entregas_vendaID_fkey FOREIGN KEY(vendaID, clienteID) REFERENCES vendas(venID, clienteID),
+    CONSTRAINT entregas_clienteID_fkey FOREIGN KEY(clienteID) REFERENCES clientes(clienteID),
+    CONSTRAINT entregas_enderecoID_fkey FOREIGN KEY(enderecoID, clienteID) REFERENCES enderecos(endeID, clienteID),
+    CONSTRAINT entregas_entregaID_un UNIQUE(entregaID, vendaID)
+);
+
+--
+-- COMANDOS ADICIONAIS
+--
+
+-- Devem ser executados com sucesso
+--
+
+INSERT INTO funcionarios VALUES ('12734805000', 'Carlos Wilson', 'FARMACEUTICO', null),
+    ('12734805001', 'Pedro Santos', 'FARMACEUTICO', null),
+    ('12734805013', 'Ana Paula', 'ADMINISTRADOR', null),
+    ('12734805021', 'Carla Silva', 'VENDEDOR', null),
+    ('12734804002', 'Mario Batista', 'ENTREGADOR', null),
+    ('12734807001', 'Fernanda Barbosa', 'ADMINISTRADOR', null),
+    ('12734805002', 'Joao Paulo', 'ENTREGADOR', null);
+
+INSERT INTO farmacias VALUES (DEFAULT, 'REDEPHARMA Unidade Manaira', 'Manaira', 'João Pessoa', 'PB', '12734805000', 'FARMACEUTICO', 'S'),
+    (DEFAULT,'REDEPHARMA Unidade Geisel', 'geisel', 'João Pessoa', 'PB', '12734805013', 'ADMINISTRADOR', 'F'),
+    (DEFAULT,'PAGUE MENOS Unidade Prata', 'prata', 'Campina Grande', 'PB', '12734805001', 'FARMACEUTICO', 'F');
+
+UPDATE funcionarios SET farmaciaID = 1 WHERE cpf = '12734805000';
+UPDATE funcionarios SET farmaciaID = 2 WHERE cpf = '12734805013';
+UPDATE funcionarios SET farmaciaID = 3 WHERE cpf = '12734805001';
+
+INSERT INTO medicamentos VALUES (DEFAULT, 'DEXILANT 60 Comprimidos', 'dexlansoprazol 60 mg', false, 126.30),
+    (DEFAULT, 'Loratamed 12 Comprimidos', 'loratadina 10 mg', false, 21.50),
+    (DEFAULT, 'Motilium 90 Comprimidos', 'domperidona 10 mg', false, 116.90),
+    (DEFAULT, 'Klaricid UD 10 Comprimidos', 'claritromicina 50 mg', true, 180);
+
+INSERT INTO clientes VALUES (DEFAULT, 'Eduardo Henrique Pontes Silva', '1997-07-21'),
+    (DEFAULT, 'Pedro Junior', '1979-07-07'),
+    (DEFAULT, 'Petrônio Domingos', '1981-03-31'),
+    (DEFAULT, 'Marleide Silva', '1980-02-03'),
+    (DEFAULT, 'Edson Weslley', '1999-05-15');
+
+INSERT INTO enderecos VALUES (DEFAULT, 1, 'RESIDENCIA', 'PB', 'João Pessoa', 'Manaira', 'Rua Joaquim Carneiro de Mesquita, 147'),
+    (DEFAULT, 2, 'RESIDENCIA', 'PB', 'João Pessoa', 'Manaira', 'Rua Joaquim Carneiro de Mesquita, 147'),
+    (DEFAULT, 1, 'OUTRO', 'PB', 'Campina Grande','Prata', 'Rua Nilo Peçanha, 446'),
+    (DEFAULT, 2, 'TRABALHO', 'PB', 'João Pessoa', 'Cristo Redentor', 'Av. Raniere Mazille, S/n - PLS Frutas'),
+    (DEFAULT, 1, 'TRABALHO', 'PB', 'João Pessoa', 'Cristo Redentor', 'Av. Raniere Mazille, S/n - PLS Frutas'),
+    (DEFAULT, 3, 'RESIDENCIA', 'PB', 'João Pessoa', 'Geisel', 'Rua João miguel de souza, 721'),
+    (DEFAULT, 4, 'OUTRO', 'PB', 'Campina Grande','Prata', 'Rua Nilo Peçanha, 446'),
+    (DEFAULT, 5, 'RESIDENCIA', 'PB', 'Campina Grande','Prata', 'Rua Silva Barbosa, 1025');
+
+INSERT INTO vendas VALUES (DEFAULT, 1, false, 2, 126.50, '12734805021', 'VENDEDOR'),
+    (DEFAULT, 2, false, null, 21.5, '12734805021', 'VENDEDOR'),
+    (DEFAULT, 3, false, null, 116.90, '12734805021', 'VENDEDOR'),
+    (DEFAULT, 4, true, 3, 190, '12734805021', 'VENDEDOR'),
+    (DEFAULT, 2, false, 5, 21.5, '12734805021', 'VENDEDOR');
+
+INSERT INTO entregas VALUES (DEFAULT, 1, 2, 2),
+    (DEFAULT, 4, 3, 6),
+    (DEFAULT, 5, 5, 8);
+
+-- Devem ser executados com algum erro
+--
+
+INSERT INTO funcionarios VALUES ('1273480500', 'pedro Wilson', 'FARMACEUTICO', null);
+-- ERROR:  new row for relation "funcionarios" violates check constraint "funcionarios_chk_cpf_valido"
+-- DETAIL:  Failing row contains (1273480500 , pedro Wilson, FARMACEUTICO, null).
+INSERT INTO funcionarios VALUES ('127348050001', 'joao Wilson', 'FARMACEUTICO', null);
+-- ERROR:  value too long for type character(11)
+INSERT INTO funcionarios VALUES (null, 'sei la Wilson', 'FARMACEUTICO', null);
+-- ERROR:  null value in column "cpf" violates not-null constraint
+-- DETAIL:  Failing row contains (null, sei la Wilson, FARMACEUTICO, null).
+INSERT INTO funcionarios VALUES ('12734805032', null, 'FARMACEUTICO', null);
+-- ERROR:  null value in column "nome" violates not-null constraint
+-- DETAIL:  Failing row contains (12734805032, null, FARMACEUTICO, null).
+INSERT INTO funcionarios VALUES ('12734805230', 'Carlos Wilson', null, null);
+-- ERROR:  null value in column "funcao" violates not-null constraint
+-- DETAIL:  Failing row contains (12734805230, Carlos Wilson, null, null).
+INSERT INTO funcionarios VALUES ('12734805120', 'Carlos Wilson', 'caseiro', null);
+-- ERROR:  invalid input value for enum funcao_fun: "caseiro"
+-- LINE 1: ...cionarios VALUES ('12734805120', 'Carlos Wilson', 'caseiro',...
+INSERT INTO funcionarios VALUES ('12734805234', 'Carlos Wilson', 'FARMACEUTICO', 1);
+-- ERROR:  insert or update on table "funcionarios" violates foreign key constraint "funcionarios_farmaciaid_fkey"
+-- DETAIL:  Key (cpf, farmaciaid)=(12734805234, 1) is not present in table "farmacias".
+INSERT INTO funcionarios VALUES ('12734805500', 'Carlos Wilson', 'FARMACEUTICO', -1);
+-- ERROR:  new row for relation "funcionarios" violates check constraint "funcionarios_chk_farmciaid_valido"
+-- DETAIL:  Failing row contains (12734805500, Carlos Wilson, FARMACEUTICO, -1).
+
+INSERT INTO farmacias VALUES (0,'REDEPHARMA Unidade Manaira', 'Manaira', 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', 'S');
+-- ERROR:  new row for relation "farmacias" violates check constraint "farmacias_chk_fa_id_valido"
+-- DETAIL:  Failing row contains (0, REDEPHARMA Unidade Manaira, Manaira, João Pessoa, PB, 12734807001, ADMINISTRADOR, S).
+INSERT INTO farmacias VALUES (null,'REDEPHARMA Unidade Manaira', 'Manaira', 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', 'F');
+-- ERROR:  null value in column "fa_id" violates not-null constraint
+-- DETAIL:  Failing row contains (null, REDEPHARMA Unidade Manaira, Manaira, João Pessoa, PB, 12734807001, ADMINISTRADOR, F).
+INSERT INTO farmacias VALUES (DEFAULT, null, 'Bessa', 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', 'F');
+-- ERROR:  null value in column "nome" violates not-null constraint
+-- DETAIL:  Failing row contains (4, null, Bessa, João Pessoa, PB, 12734807001, ADMINISTRADOR, F).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', null, 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', 'F');
+-- ERROR:  null value in column "bairro" violates not-null constraint
+-- DETAIL:  Failing row contains (5, REDEPHARMA Unidade Bessa, null, João Pessoa, PB, 12734807001, ADMINISTRADOR, F).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Manaira', 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', 'F');
+-- ERROR:  duplicate key value violates unique constraint "farmacias_bairro_un"
+-- DETAIL:  Key (bairro)=(Manaira) already exists.
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', null, 'PB', '12734807001', 'ADMINISTRADOR', 'F');
+-- ERROR:  null value in column "cidade" violates not-null constraint
+-- DETAIL:  Failing row contains (7, REDEPHARMA Unidade Bessa, Bessa, null, PB, 12734807001, ADMINISTRADOR, F).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', null, '12734807001', 'ADMINISTRADOR', 'F');
+-- ERROR:  null value in column "estado" violates not-null constraint
+-- DETAIL:  Failing row contains (8, REDEPHARMA Unidade Bessa, Bessa, João Pessoa, null, 12734807001, ADMINISTRADOR, F).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'SP', '12734807001', 'ADMINISTRADOR', 'F');
+-- ERROR:  invalid input value for enum estado_ne: "SP"
+-- LINE 1: ...EDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'SP', '127...
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', null, 'ADMINISTRADOR', 'F');
+-- ERROR:  null value in column "gerente" violates not-null constraint
+-- DETAIL:  Failing row contains (9, REDEPHARMA Unidade Bessa, Bessa, João Pessoa, PB, null, ADMINISTRADOR, F).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807013', 'ADMINISTRADOR', 'F');
+-- ERROR:  insert or update on table "farmacias" violates foreign key constraint "farmacias_gerente_fkey"
+-- DETAIL:  Key (gerente, gerente_fun)=(12734807013, ADMINISTRADOR) is not present in table "funcionarios".
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807015', 'ADMINISTRADOR', 'F');
+-- ERROR:  insert or update on table "farmacias" violates foreign key constraint "farmacias_gerente_fkey"
+-- DETAIL:  Key (gerente, gerente_fun)=(12734807015, ADMINISTRADOR) is not present in table "funcionarios"
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807001', null, 'F');
+-- ERROR:  null value in column "gerente_fun" violates not-null constraint
+-- DETAIL:  Failing row contains (12, REDEPHARMA Unidade Bessa, Bessa, João Pessoa, PB, 12734807001, null, F).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807001', 'FARMACEUTICO', 'F');
+-- ERROR:  insert or update on table "farmacias" violates foreign key constraint "farmacias_gerente_fkey"
+-- DETAIL:  Key (gerente, gerente_fun)=(12734807001, FARMACEUTICO) is not present in table "funcionarios".
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807021', 'VENDEDOR', 'F');
+-- ERROR:  new row for relation "farmacias" violates check constraint "farmacias_gerente_fun_chk"
+-- DETAIL:  Failing row contains (14, REDEPHARMA Unidade Bessa, Bessa, João Pessoa, PB, 12734807021, VENDEDOR, F).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', null);
+-- ERROR:  null value in column "tipo_loja" violates not-null constraint
+-- DETAIL:  Failing row contains (15, REDEPHARMA Unidade Bessa, Bessa, João Pessoa, PB, 12734807001, ADMINISTRADOR, null).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', 'S');
+-- ERROR:  conflicting key value violates exclusion constraint "farmacias_tipo_ex"
+-- DETAIL:  Key (tipo_loja)=(S) conflicts with existing key (tipo_loja)=(S).
+INSERT INTO farmacias VALUES (DEFAULT,'REDEPHARMA Unidade Bessa', 'Bessa', 'João Pessoa', 'PB', '12734807001', 'ADMINISTRADOR', 'FI');
+-- ERROR:  value too long for type character(1)
+
+INSERT INTO medicamentos VALUES (0, 'DEXILANT 30 Comprimidos', 'dexlansoprazol 60 mg', false, 66.60);
+-- ERROR:  new row for relation "medicamentos" violates check constraint "medicamentos_chk_fa_id_valido"
+-- DETAIL:  Failing row contains (0, DEXILANT 30 Comprimidos, dexlansoprazol 60 mg, f, 66.60).
+INSERT INTO medicamentos VALUES (null, 'DEXILANT 30 Comprimidos', 'dexlansoprazol 60 mg', false, 66.60);
+-- ERROR:  null value in column "medid" violates not-null constraint
+-- DETAIL:  Failing row contains (null, DEXILANT 30 Comprimidos, dexlansoprazol 60 mg, f, 66.60).
+INSERT INTO medicamentos VALUES (1, 'DEXILANT 30 Comprimidos', 'dexlansoprazol 60 mg', false, 66.60);
+-- ERROR:  duplicate key value violates unique constraint "medicamentos_medid_pkey"
+-- DETAIL:  Key (medid)=(1) already exists.
+INSERT INTO medicamentos VALUES (DEFAULT, null, 'dexlansoprazol 60 mg', false, 66.60);
+-- ERROR:  null value in column "nome" violates not-null constraint
+-- DETAIL:  Failing row contains (5, null, dexlansoprazol 60 mg, f, 66.60).
+INSERT INTO medicamentos VALUES (DEFAULT, 'DEXILANT 30 Comprimidos', null, false, 66.60);
+-- ERROR:  null value in column "prin_ativo" violates not-null constraint
+-- DETAIL:  Failing row contains (6, DEXILANT 30 Comprimidos, null, f, 66.60).
+INSERT INTO medicamentos VALUES (DEFAULT, 'DEXILANT 30 Comprimidos', 'dexlansoprazol 60 mg', null, 66.60);
+-- ERROR:  null value in column "venda_exclusiva" violates not-null constraint
+-- DETAIL:  Failing row contains (7, DEXILANT 30 Comprimidos, dexlansoprazol 60 mg, null, 66.60).
+INSERT INTO medicamentos VALUES (DEFAULT, 'DEXILANT 30 Comprimidos', 'dexlansoprazol 60 mg', false, -66.60);
+-- ERROR:  new row for relation "medicamentos" violates check constraint "medicamentos_valor_chk"
+-- DETAIL:  Failing row contains (8, DEXILANT 30 Comprimidos, dexlansoprazol 60 mg, f, -66.60).
+INSERT INTO medicamentos VALUES (DEFAULT, 'DEXILANT 30 Comprimidos', 'dexlansoprazol 60 mg', false, null);
+-- ERROR:  null value in column "valor" violates not-null constraint
+-- DETAIL:  Failing row contains (9, DEXILANT 30 Comprimidos, dexlansoprazol 60 mg, f, null).
+
+INSERT INTO clientes VALUES (0, 'Pietra Regina', '1998-12-24');
+-- ERROR:  new row for relation "clientes" violates check constraint "medicamentos_chk_fa_id_valido"
+-- DETAIL:  Failing row contains (0, Pietra Regina, 1998-12-24).
+INSERT INTO clientes VALUES (null, 'Pietra Regina', '1998-12-24');
+-- ERROR:  null value in column "clienteid" violates not-null constraint
+-- DETAIL:  Failing row contains (null, Pietra Regina, 1998-12-24).
+INSERT INTO clientes VALUES (1, 'Pietra Regina', '1998-12-24');
+-- ERROR:  duplicate key value violates unique constraint "clientes_clienteid_pkey"
+-- DETAIL:  Key (clienteid)=(1) already exists.
+INSERT INTO clientes VALUES (DEFAULT, null, '1998-12-24');
+-- ERROR:  null value in column "nome" violates not-null constraint
+-- DETAIL:  Failing row contains (6, null, 1998-12-24).
+INSERT INTO clientes VALUES (DEFAULT, 'Pietra Regina', null);
+-- ERROR:  null value in column "data_nasc" violates not-null constraint
+-- DETAIL:  Failing row contains (7, Pietra Regina, null).
+INSERT INTO clientes VALUES (DEFAULT, 'Pietra Regina', '2001-12-24');
+-- ERROR:  new row for relation "clientes" violates check constraint "clientes_idade_min_chk"
+-- DETAIL:  Failing row contains (8, Pietra Regina, 2001-12-24).
+INSERT INTO clientes VALUES (DEFAULT, 'Pietra Regina', '2001-04-13'); -- Data da Consulta: 2019-04-12
+-- ERROR:  new row for relation "clientes" violates check constraint "clientes_idade_min_chk"
+-- DETAIL:  Failing row contains (9, Pietra Regina, 2001-04-13).
+
+INSERT INTO enderecos VALUES (0, 1, 'RESIDENCIA', 'PB', 'João Pessoa', 'Manaira', 'Rua Joaquim Carneiro de Mesquita, 147');
+-- ERROR:  new row for relation "enderecos" violates check constraint "enderecos_chk_endeid_valido"
+-- DETAIL:  Failing row contains (0, 1, RESIDENCIA, PB, João Pessoa, Manaira, Rua Joaquim Carneiro de Mesquita, 147).
+INSERT INTO enderecos VALUES (1, 1, 'OUTRO', 'PB', 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  duplicate key value violates unique constraint "enderecos_endeid_pkey"
+-- DETAIL:  Key (endeid)=(1) already exists.
+INSERT INTO enderecos VALUES (null, 1, 'OUTRO', 'PB', 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  null value in column "endeid" violates not-null constraint
+-- DETAIL:  Failing row contains (null, 1, OUTRO, PB, João Pessoa, Geisel, Rua João Miguel de Souza, 721).
+INSERT INTO enderecos VALUES (DEFAULT, null, 'OUTRO', 'PB', 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  null value in column "clienteid" violates not-null constraint
+-- DETAIL:  Failing row contains (9, null, OUTRO, PB, João Pessoa, Geisel, Rua João Miguel de Souza, 721).
+INSERT INTO enderecos VALUES (DEFAULT, 6, 'OUTRO', 'PB', 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  insert or update on table "enderecos" violates foreign key constraint "enderecos_clienteid_fkey"
+-- DETAIL:  Key (clienteid)=(6) is not present in table "clientes".
+INSERT INTO enderecos VALUES (DEFAULT, 1, 'CASA', 'PB', 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  invalid input value for enum address_tipo: "CASA"
+-- LINE 1: INSERT INTO enderecos VALUES (DEFAULT, 1, 'CASA', 'PB', 'Joã...
+INSERT INTO enderecos VALUES (DEFAULT, 1, null, 'PB', 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  null value in column "tipo_endereco" violates not-null constraint
+-- DETAIL:  Failing row contains (11, 1, null, PB, João Pessoa, Geisel, Rua João Miguel de Souza, 721).
+INSERT INTO enderecos VALUES (DEFAULT, 1, 'OUTRO', 'SP', 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  invalid input value for enum estado_ne: "SP"
+-- LINE 1: ...NSERT INTO enderecos VALUES (DEFAULT, 1, 'OUTRO', 'SP', 'Joã...
+INSERT INTO enderecos VALUES (DEFAULT, 1, 'OUTRO', null, 'João Pessoa', 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  null value in column "estado" violates not-null constraint
+-- DETAIL:  Failing row contains (12, 1, OUTRO, null, João Pessoa, Geisel, Rua João Miguel de Souza, 721).
+INSERT INTO enderecos VALUES (DEFAULT, 1, 'OUTRO', 'PB', null, 'Geisel', 'Rua João Miguel de Souza, 721');
+-- ERROR:  null value in column "cidade" violates not-null constraint
+-- DETAIL:  Failing row contains (13, 1, OUTRO, PB, null, Geisel, Rua João Miguel de Souza, 721).
+INSERT INTO enderecos VALUES (DEFAULT, 1, 'OUTRO', 'PB', 'João Pessoa', null, 'Rua João Miguel de Souza, 721');
+-- ERROR:  null value in column "bairro" violates not-null constraint
+-- DETAIL:  Failing row contains (14, 1, OUTRO, PB, João Pessoa, null, Rua João Miguel de Souza, 721).
+INSERT INTO enderecos VALUES (DEFAULT, 1, 'OUTRO', 'PB', 'João Pessoa', 'Geisel', null);
+-- ERROR:  null value in column "rua" violates not-null constraint
+-- DETAIL:  Failing row contains (15, 1, OUTRO, PB, João Pessoa, Geisel, null).
+
+INSERT INTO vendas VALUES (0, 2, false, 2, 21.50, '12734805021', 'VENDEDOR');
+-- ERROR:  new row for relation "vendas" violates check constraint "vendas_chk_venid_valido"
+-- DETAIL:  Failing row contains (0, 2, f, 2, 21.50, 12734805021, VENDEDOR).
+INSERT INTO vendas VALUES (1, 2, false, 2, 21.50, '12734805021', 'VENDEDOR');
+-- ERROR:  duplicate key value violates unique constraint "vendas_venid_pkey"
+-- DETAIL:  Key (venid)=(1) already exists.
+INSERT INTO vendas VALUES (DEFAULT, 5, false, 2, 21.50, '12734805021', 'VENDEDOR');
+-- ERROR:  insert or update on table "vendas" violates foreign key constraint "vendas_produto_receita_fkey"
+-- DETAIL:  Key (produto, produto_receita)=(5, f) is not present in table "medicamentos"
+INSERT INTO vendas VALUES (DEFAULT, null, false, 2, 21.50, '12734805021', 'VENDEDOR');
+-- ERROR:  null value in column "produto" violates not-null constraint
+-- DETAIL:  Failing row contains (7, null, f, 2, 21.50, 12734805021, VENDEDOR).
+INSERT INTO vendas VALUES (DEFAULT, 2, true, 2, 21.50, '12734805021', 'VENDEDOR');
+-- ERROR:  insert or update on table "vendas" violates foreign key constraint "vendas_produto_receita_fkey"
+-- DETAIL:  Key (produto, produto_receita)=(2, t) is not present in table "medicamentos".
+INSERT INTO vendas VALUES (DEFAULT, 2, false, 6, 21.50, '12734805021', 'VENDEDOR');
+-- ERROR:  insert or update on table "vendas" violates foreign key constraint "vendas_clienteid_fkey"
+-- DETAIL:  Key (clienteid)=(6) is not present in table "clientes".
+INSERT INTO vendas VALUES (DEFAULT, 4, true, null, 180, '12734805021', 'VENDEDOR');
+-- ERROR:  new row for relation "vendas" violates check constraint "vendas_receita_chk"
+-- DETAIL:  Failing row contains (10, 4, t, null, 180, 12734805021, VENDEDOR)
+INSERT INTO vendas VALUES (DEFAULT, 2, false, 2, - 21.50, '12734805021', 'VENDEDOR');
+-- ERROR:  new row for relation "vendas" violates check constraint "vendas_valor_chk"
+-- DETAIL:  Failing row contains (11, 2, f, 2, -21.50, 12734805021, VENDEDOR).
+INSERT INTO vendas VALUES (DEFAULT, 2, false, 2, 21.50, '12734805001', 'FARMACEUTICO');
+-- ERROR:  new row for relation "vendas" violates check constraint "vendas_vendedor_chk"
+-- DETAIL:  Failing row contains (12, 2, f, 2, 21.50, 12734805001, FARMACEUTICO).
+INSERT INTO vendas VALUES (DEFAULT, 2, false, 2, 21.50, '12734805021', 'FARMACEUTICO');
+-- ERROR:  new row for relation "vendas" violates check constraint "vendas_vendedor_chk"
+-- DETAIL:  Failing row contains (13, 2, f, 2, 21.50, 12734805021, FARMACEUTICO).
+
+INSERT INTO entregas VALUES (0, 1, 2, 2);
+-- ERROR:  new row for relation "entregas" violates check constraint "vendas_chk_entregaid_valido"
+-- DETAIL:  Failing row contains (0, 1, 2, 2).
+INSERT INTO entregas VALUES (1, 1, 2, 2);
+-- ERROR:  duplicate key value violates unique constraint "entregas_entregaid_pkey"
+-- DETAIL:  Key (entregaid)=(1) already exists.
+INSERT INTO entregas VALUES (DEFAULT, null, 2, 2);
+-- ERROR:  null value in column "vendaid" violates not-null constraint
+-- DETAIL:  Failing row contains (4, null, 2, 2)
+INSERT INTO entregas VALUES (DEFAULT, 2, 2, 2);
+-- ERROR:  insert or update on table "entregas" violates foreign key constraint "entregas_vendaid_fkey"
+-- DETAIL:  Key (vendaid, clienteid)=(2, 2) is not present in table "vendas".
+INSERT INTO entregas VALUES (DEFAULT, 6, 2, 2);
+-- ERROR:  insert or update on table "entregas" violates foreign key constraint "entregas_vendaid_fkey"
+-- DETAIL:  Key (vendaid, clienteid)=(6, 2) is not present in table "vendas"
+INSERT INTO entregas VALUES (DEFAULT, 1, 3, 2);
+-- ERROR:  insert or update on table "entregas" violates foreign key constraint "entregas_vendaid_fkey"
+-- DETAIL:  Key (vendaid, clienteid)=(1, 3) is not present in table "vendas".
+INSERT INTO entregas VALUES (DEFAULT, 1, null, 2);
+-- ERROR:  null value in column "clienteid" violates not-null constraint
+-- DETAIL:  Failing row contains (8, 1, null, 2).
+INSERT INTO entregas VALUES (DEFAULT, 1, 6, 2);
+-- ERROR:  insert or update on table "entregas" violates foreign key constraint "entregas_vendaid_fkey"
+-- DETAIL:  Key (vendaid, clienteid)=(1, 6) is not present in table "vendas".
+INSERT INTO entregas VALUES (DEFAULT, 1, 2, 3);
+-- ERROR:  insert or update on table "entregas" violates foreign key constraint "entregas_enderecoid_fkey"
+-- DETAIL:  Key (enderecoid, clienteid)=(3, 2) is not present in table "enderecos".
+INSERT INTO entregas VALUES (DEFAULT, 1, 2, null);
+-- ERROR:  null value in column "enderecoid" violates not-null constraint
+-- DETAIL:  Failing row contains (11, 1, 2, null).
