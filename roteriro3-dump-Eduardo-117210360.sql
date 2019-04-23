@@ -941,9 +941,6 @@ INSERT INTO clientes VALUES (DEFAULT, 'Pietra Regina', null);
 INSERT INTO clientes VALUES (DEFAULT, 'Pietra Regina', '2001-12-24');
 -- ERROR:  new row for relation "clientes" violates check constraint "clientes_idade_min_chk"
 -- DETAIL:  Failing row contains (11, Pietra Regina, 2001-12-24).
-INSERT INTO clientes VALUES (DEFAULT, 'Pietra Regina', '2001-04-13'); -- Data da Consulta: 2019-04-12
--- ERROR:  new row for relation "clientes" violates check constraint "clientes_idade_min_chk"
--- DETAIL:  Failing row contains (12, Pietra Regina, 2001-04-13).
 
 INSERT INTO enderecos VALUES (0, 1, 'RESIDENCIA', 'PB', 'João Pessoa', 'Manaira', 'Rua Joaquim Carneiro de Mesquita, 147');
 -- ERROR:  new row for relation "enderecos" violates check constraint "enderecos_chk_endeid_valido"
