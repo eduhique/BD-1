@@ -17,7 +17,23 @@ SELECT S.fname AS nome_supervisor, COUNT(*) AS qtd_supervisionados FROM employee
 SELECT MIN(qtd) AS qtd FROM (SELECT p.pnumber, COUNT(*) AS qtd FROM project as p, works_on as W WHERE p.pnumber = w.pno GROUP BY p.pnumber) AS fun;
 
 --Q7
-SELECT MIN(f.qtd) AS qtd_fun FROM (SELECT p.pnumber as projeto, COUNT(*) AS qtd FROM project as p, works_on as W WHERE p.pnumber = w.pno GROUP BY p.pnumber)as f; -- NAo foi
+SELECT pno as num_projeto, qtd as qtd_func
+FROM (
+    (SELECT pno, COUNT(*)
+    FROM works_on
+    GROUP BY pno) as pnc
+    
+    JOIN
+    
+    (SELECT MIN(count) AS qtd
+    FROM (
+        SELECT COUNT(*)
+        FROM works_on
+        GROUP BY pno
+    ) t ) AS minumum
+
+    ON pnc.count = minumum.qtd
+);
 
 --Q8
 SELECT w.pno AS num_projeto, AVG(e.salary) AS media_sal FROM works_on AS w, employee AS e WHERE e.ssn = w.essn GROUP BY w.pno;
